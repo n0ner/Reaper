@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" commit="6300caad5a440a8e79637ce01db2c88110356afc">
+  <category name="Various/FX Finder">
+    <reapack name="n0ne_Fast FX Finder.lua" type="script" desc="Fast FX Finder">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \b \fs36 Fast VST/FX Rack/Template Finder\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 A little window that allows for quick searching of FX (can be VST, templates or fxrack).\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 The script stores how often you select a certain FX and orders the list by how many times something is used.\par}
+}
+]]></description>
+      </metadata>
+      <version name="0.7.15" author="n0ne" time="2020-01-05T12:05:29Z">
+        <changelog><![CDATA[Initial Release]]></changelog>
+        <source main="main">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/n0ne_Fast%20FX%20Finder.lua</source>
+        <source file="REQ/j_file_functions.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/j_file_functions.lua</source>
+        <source file="REQ/JProjectClass.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/JProjectClass.lua</source>
+        <source file="REQ/JProjectClassReq.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/JProjectClassReq.lua</source>
+        <source file="REQ/j_tables.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/j_tables.lua</source>
+        <source file="REQ/JGui.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/JGui.lua</source>
+        <source file="REQ/JGuiColors.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/JGuiColors.lua</source>
+        <source file="REQ/JGuiControls.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/JGuiControls.lua</source>
+        <source file="REQ/JGuiFunctions.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/JGuiFunctions.lua</source>
+        <source file="REQ/j_trackstatechunk_functions.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/j_trackstatechunk_functions.lua</source>
+        <source file="REQ/j_settings_functions.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/j_settings_functions.lua</source>
+        <source file="REQ/j_string_functions.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/j_string_functions.lua</source>
+        <source file="REQ/jKeyboard.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/jKeyboard.lua</source>
+        <source file="REQ/mouse.lua">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/mouse.lua</source>
+        <source file="REQ/fx-finder-settings-default.ini">https://github.com/n0ner/Reaper/raw/6300caad5a440a8e79637ce01db2c88110356afc/Various/FX%20Finder/REQ/fx-finder-settings-default.ini</source>
+      </version>
+    </reapack>
+  </category>
+</index>
