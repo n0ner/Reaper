@@ -135,21 +135,11 @@ function jGuiControl:_draw()
 	end
 	
 	-- else
-	gfx.setfont(1, self.label_font, self.label_fontsize)
+	-- gfx.setfont(1, self.label_font, self.label_fontsize)
 	
-	if self.active == true then
-		jGuiControl:__setGfxColor(self.colors_label.active)
-	elseif self.hover == true then
-		jGuiControl:__setGfxColor(self.colors_label.hover)
-	elseif self.focus == true then
-		jGuiControl:__setGfxColor(self.colors_label.focus)
-	else
-		jGuiControl:__setGfxColor(self.colors_label.normal)
-	end
+	-- self:_setStateColor()
 	
-	self:__setLabelXY()
-	
-	gfx.drawstr(tostring(self.label))
+	self:_drawLabel()
 	
 	-- Draw a border around the control
 	if self.border then
@@ -162,6 +152,13 @@ function jGuiControl:_draw()
 		local distance = 2
 		gfx.rect(self.x - distance, self.y - distance, self.width + distance*2, self.height + distance*2, 0)
 	end
+end
+
+function jGuiControl:_drawLabel()
+	gfx.setfont(1, self.label_font, self.label_fontsize)
+	self:_setStateColor()
+	self:__setLabelXY()
+	gfx.drawstr(tostring(self.label))
 end
 
 function jGuiControl:update()
@@ -335,6 +332,16 @@ function jGuiButtonToggle:_draw()
 		return false
 	end
 	-- else
+
+	
+	self:_drawLabel()
+	
+	if self.border then
+		gfx.rect(self.x, self.y, self.width, self.height, 0)
+	end
+end
+
+function jGuiButtonToggle:_drawLabel()
 	gfx.setfont(1, self.label_font, self.label_fontsize)
 	
 	if self.active == true then
@@ -348,14 +355,9 @@ function jGuiButtonToggle:_draw()
 	else
 		jGuiControl:__setGfxColor(self.colors_label.normal)
 	end
-	
+
 	self:__setLabelXY()
-	
 	gfx.drawstr(tostring(self.label))
-	
-	if self.border then
-		gfx.rect(self.x, self.y, self.width, self.height, 0)
-	end
 end
 
 ----------
@@ -413,12 +415,13 @@ function jGuiTextInput:_draw()
 		return false
 	end
 	
-	gfx.setfont(1, self.label_font, self.label_fontsize)
+	-- gfx.setfont(1, self.label_font, self.label_fontsize)
 	
-	self:_setStateColor()
-	self:__setLabelXY()
+	-- self:_setStateColor()
+	-- self:__setLabelXY()
 	
-	gfx.drawstr(tostring(self.label))
+	-- gfx.drawstr(tostring(self.label))
+	self:_drawLabel()
 	
 	-- Draw a border around the control
 	if self.border then
@@ -566,13 +569,13 @@ function jGuiSlider:_draw()
 	end
 
 	-- else
-	gfx.setfont(1, self.label_font, self.label_fontsize)
+	-- gfx.setfont(1, self.label_font, self.label_fontsize)
 	
-	self:_setStateColor()
-	self:__setLabelXY()
+	-- self:_setStateColor()
+	-- self:__setLabelXY()
 	
-	gfx.drawstr(tostring(self.label))
-	
+	-- gfx.drawstr(tostring(self.label))
+	self:_drawLabel()
 	
 	local valueLabel = self:_makeLabel()
 	

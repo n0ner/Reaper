@@ -7,9 +7,11 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.15
+@version 0.7.16
 @changelog
-	Initial Release
+	+ Also add VST's to items (hold control)
+	+ Highlighting of search term
+	- Reset scrol position bug fix
 @provides
 	REQ/j_file_functions.lua
 	REQ/JProjectClass.lua
@@ -245,6 +247,39 @@ function findVst(vstTable, sPattern, iInstance, iMaxResults, find_plain)
     end
 end
 
+jGuiHighlightControl = jGuiControl:new({highlight = {}, color_highlight = {1, .9, 0, .2},})
+
+function jGuiHighlightControl:_drawLabel()
+	-- msg(self.label)
+	
+	gfx.setfont(1, self.label_font, self.label_fontsize)
+	self:__setLabelXY()
+
+	if self.highlight and #self.highlight > 0 then
+		for _, word in pairs(self.highlight) do
+			if word and word ~= "" then
+				local parts, r = jStringExplode(self.label, word, true)
+				local totalX = 0
+				if #parts>1 then
+					local highLightW, highLightH = gfx.measurestr(word)
+					for i = 1, #parts - 1 do -- do all but the last
+						local noLightW, noLightH = gfx.measurestr(parts[i])
+						-- Draw highlight
+						self:__setGfxColor(self.color_highlight)
+						gfx.rect(gfx.x + totalX + noLightW, gfx.y, highLightW + 1, highLightH, 1)
+
+						totalX = totalX + noLightW + highLightW
+					end
+					-- tablePrint(parts)
+				end
+			end
+		end
+	end
+
+	self:_setStateColor()
+	gfx.drawstr(tostring(self.label))
+end
+
 function createResultButtons(gui, n)
 	-- local defaultControlSettings = {width = 200, height = 20, label_fontsize = 18, label_align = "l"}
 	local x_start = 10
@@ -255,7 +290,7 @@ function createResultButtons(gui, n)
 	
 	for i = 1, n do
 		
-		local c = jGuiControl:new()
+		local c = jGuiHighlightControl:new()
 		-- c.visible = false
 		c.width  = 480
 		c.height = 20
@@ -283,6 +318,7 @@ function createResultButtons(gui, n)
 		
 		function c:onMouseClick()
 			selectFx(i + SCROLL_RESULTS)
+
 			GUI:setFocus(textBox)
 			UPDATE_RESULTS = true
 			if not GUI.kb.shift() then
@@ -303,7 +339,6 @@ function createResultButtons(gui, n)
 	
 	return tResult
 end
-
 function _round(inValue)
 	return math.floor(inValue+0.5)
 end
@@ -313,15 +348,18 @@ function showSearchResults(tButtons, tResults)
 		local b = GUI:controlGet(cIds[1])
 		local info = GUI:controlGet(cIds[2])
 		local iStart = _round(i + SCROLL_RESULTS)
+		local highlights = jStringExplode(textBox.value, " ")
 
 		local showing
 		if iStart <= #tResults then showing = iStart else showing = #tResults end
 		LABEL_STATS.label = "(" .. showing  .. "/" .. #tResults .. ")"
+
 		if tResults and iStart <= #tResults then
 			local fx = tResults[iStart]
 			b.label = _makeFxLabel(fx.name)
 			b.visible = true
 			info.visible = true
+			b.highlight = highlights
 
 			local tTypes = {}
 			if fx.instrument then
@@ -373,7 +411,7 @@ function sortByRating(a, b)
 	end
 end
 
-function selectFx(i)
+function selectFx(i, sTarget)
 	if not tSearchResults then return false end -- results is empty
 	local fx = tSearchResults[i]
 	if not fx then return false end -- no such result
@@ -381,6 +419,7 @@ function selectFx(i)
 	tVstData[fx.id].rating = tVstData[fx.id].rating + 1
 
 	reaper.Undo_BeginBlock2(p:getId())
+	
 	if fx.tracktemplate then
 		-- This is a template, insert it
 		reaper.Main_openProject(fx.path .. fx.filename)
@@ -409,14 +448,24 @@ function selectFx(i)
 		if tVstData[fx.id].vst3 and PREFER_VST3 then -- prefer VST3 where available
 			typeInfo = "VST3:"
 		end
-		for t in p:selectedTracks() do
-			local r = t:addFx(typeInfo .. _removeVstiString(tVstData[fx.id].name))
-			if r then
-				r:show()
+		if not GUI.kb.control() then -- Control not held, insert on tracks
+			for t in p:selectedTracks() do
+				local r = t:addFx(typeInfo .. _removeVstiString(tVstData[fx.id].name))
+				if r then
+					r:show()
+				end
+			end
+		else -- Control held, insert on items
+			for i in p:selectedItems() do
+				local take = i:getActiveTake()
+				local r = take:addFx(typeInfo .. _removeVstiString(tVstData[fx.id].name))
+				if r >= 0 then
+					reaper.TakeFX_Show(take:getReaperTake(), r, 3) -- show FX
+				end
 			end
 		end
 	end
-	reaper.Undo_EndBlock2(p:getId(), "J FX FINDER: Add Fx", 0)
+	reaper.Undo_EndBlock2(p:getId(), "FAST FX FINDER: Add Fx", 0)
 
 	UPDATE_RATINGS = true
 	return true
@@ -461,6 +510,10 @@ function init()
 	GUI:init()
 	
 	function GUI:update()
+		if lastSearch ~= textBox.value then
+			SCROLL_RESULTS = 0 -- reset scrollbar on search update
+		end
+
 		if(lastSearch ~= textBox.value or UPDATE_RESULTS) then
 			-- search changed, update results
 			UPDATE_RESULTS = false
@@ -470,7 +523,6 @@ function init()
 			showSearchResults(tResultButtons, tSearchResults)
 			lastSearch = textBox.value
 		end
-
 	end
 	
 	function GUI:onExit()

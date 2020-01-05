@@ -87,15 +87,15 @@ function tableMultiCount(t, s)
     end
     return iResult
 end
-function stringExplode(s, sep)
-    tResult = {}
+-- function stringExplode(s, sep)
+--     tResult = {}
     
-    for st in string.gmatch(s, "(.-)"..sep) do
-        table.insert(tResult, st)
-    end
+--     for st in string.gmatch(s, "(.-)"..sep) do
+--         table.insert(tResult, st)
+--     end
     
-    return tResult
-end
+--     return tResult
+-- end
 
 
 

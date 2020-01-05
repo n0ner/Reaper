@@ -776,6 +776,14 @@ JTake.mt.__newindex = function (table, key, value)
     end
 end
 
+function JTake.prototype:getReaperTake()
+	return self.pTake
+end
+
+function JTake.prototype:getItem()
+	return self._parentItem
+end
+
 function JTake.prototype:getStretchMarker(idx)
 	local idx = idx or 0
 	local retval, pos, srcpos = reaper.GetTakeStretchMarker(self.pTake, idx)
@@ -823,6 +831,17 @@ end
 
 function JTake.prototype:deleteAllStretchMarkers()
 	return reaper.DeleteTakeStretchMarkers(self.pTake, 0, self.stretchmarkercount)
+end
+
+function JTake.prototype:addFx(sFxName)
+	-- Inserts an effect by name. If succesful returns the fx index (number)
+
+	local r = reaper.TakeFX_AddByName(self.pTake, sFxName, -1)
+	if r >= 0 then
+		return r
+	else 
+		return false
+	end
 end
 
 -- MEDIA ITEM
@@ -885,6 +904,10 @@ JItem.mt.__newindex = function (table, key, value)
 	end
 end
 
+function JItem.prototype:getReaperItem()
+	return self.pItem
+end
+
 function JItem.prototype:getTake(idx)
 	local idx = idx or 0
 	local ta = JTake:new({pTake = reaper.GetMediaItemTake(self.pItem, idx), _parentItem = self})
@@ -934,6 +957,13 @@ function JItem.prototype:delete()
 	local res = reaper.DeleteTrackMediaItem(self:getTrack():getReaperTrack(), self.pItem)
 	self = nil
 	return res
+end
+
+function JItem.prototype:getStateChunk()
+	local r, str = reaper.GetItemStateChunk(self:getReaperItem(), "")
+	if r then
+		return str
+	end
 end
 -- PROJECT
 JProject = {}
