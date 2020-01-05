@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" commit="6300caad5a440a8e79637ce01db2c88110356afc">
+<index version="1" commit="6300caad5a440a8e79637ce01db2c88110356afc" name="n0ne scripts">
   <category name="Various/FX Finder">
     <reapack name="n0ne_Fast FX Finder.lua" type="script" desc="Fast FX Finder">
       <metadata>
