@@ -1,40 +1,149 @@
 --[[
 @author n0ne
-@version 0.7.0
+@version 0.7.1
 @noindex
 --]]
 
-function jReadSettings(file_name)
-    -- Reads variables from a ini style text file
-    -- Format for text file is: varname=value, lines starting with // are ignored and can be used for commenting
-    -- Every varname will we a TABLE in the returned table, this way one variable can have multiple values
-	local settingsData = {}
-	if not io.open(file_name, "r") then
+function jSettingsReadFromFile(file_name)
+	-- Reads variables from a ini style text file
+	local f = io.open(file_name, "r")
+	if not f then
 		msg("No settingsfile found: " .. file_name)
 		return false
 	end
 
-	for line in io.lines(file_name) do
-		-- Skips lines that start with //
-		--if not line:match("^//.+") then
-		local lineClean = jStringExplode(line, "//")
-			local name = lineClean[1]:match("(.+)=.-")
-			if name then
-				local value = lineClean[1]:match(".+=(.+)")
-                value = _jReadSettingsProcessValue(value)
-				-- msg(name .. ": " .. tostring(value) .. ", type: " .. type(value))
+	local sContent = f:read("*all")
+	f:close()
 
-				if settingsData[name] then
-					settingsData[name][#settingsData[name]+1] = value
-				else
-					settingsData[name] = {value}
-				end
-			end	
-		--end
+	return jSettingsRead(sContent)
+end
+
+function jSettingsWriteToFile(file_name, inSection, inName, inValue, bSectionOptional)
+	local bSectionOptional = bSectionOptional or false
+
+	local f = io.open(file_name, "r")
+	if not f then
+		msg("No settingsfile found: " .. file_name)
+		return false
+	end
+
+	local sContent = f:read("*all")
+	f = io.open(file_name, "w")
+	sContent = jSettingsWriteKey(sContent, inSection, inName, inValue, bSectionOptional)
+	f:write(sContent)
+	f:close()
+end
+
+function jSettingsWriteToFileMultiple(file_name, tKeys, bSectionOptional)
+	local bSectionOptional = bSectionOptional or false
+
+	local f = io.open(file_name, "r")
+	if not f then
+		msg("No settingsfile found: " .. file_name)
+		return false
+	end
+
+	local sContent = f:read("*all")
+	f = io.open(file_name, "w")
+	for _, v in pairs(tKeys) do
+		sContent = jSettingsWriteKey(sContent, v[1], v[2], v[3], bSectionOptional)
+	end
+	f:write(sContent)
+	f:close()
+end
+
+function jSettingsRead(str)
+    -- Reads variables from a ini style string
+	-- Format for text file is: varname=value
+	-- Comments can be made with ; or // (can be inline too)
+    -- Every varname will we a TABLE in the returned table, this way one variable can have multiple values
+	local settingsData = {}
+
+	for line in str:gmatch("[^\r\n]+") do
+		local lineClean = _jSettingsRemoveComments(line)
+		local name, value, section = _jSettingsLineProcess(lineClean)
+		if name then
+			value = _jSettingsReadProcessValue(value)
+			-- msg("Var: " .. name .. ": " .. tostring(value))
+			if settingsData[name] then
+				settingsData[name][#settingsData[name]+1] = value
+			else
+				settingsData[name] = {value}
+			end
+		elseif section then
+			-- Can do something with section name here
+			-- msg("Section: " .. section)
+		else
+			-- Comments/empty/unrecognized
+			-- msg ("Skipped: " .. tostring(line))
+		end
 	end
 
 	-- tablePrint(settingsData)
 	return settingsData
+end
+
+function _jSettingsRemoveComments(inLine)
+	local lineClean = jStringExplode(inLine, ";")[1]
+	lineClean = jStringExplode(lineClean, "//")[1] -- First version used // for comments
+	return lineClean
+end
+
+function _jSettingsLineProcess(inLine)
+	local name = inLine:match("(.+)=(.-)")
+	local value = inLine:match(".+=(.+)")
+	if name then
+		return name, value, nil
+	end
+	-- else
+	local section = inLine:match("%[(.+)%]")
+
+	return name, value, section
+end
+
+function jSettingsWriteKey(str, inSection, inName, inValue, bSectionOptional)
+	local bSectionOptional = bSectionOptional or false
+	local newStr = ""
+	local currentSection = false
+	local bSucces = false
+
+	inSection = tostring(inSection)
+	inName = tostring(inName)
+	inValue = tostring(inValue)
+	
+	for line in str:gmatch("[^\r\n]+") do
+
+		local lineClean = _jSettingsRemoveComments(line)
+		local name, value, section = _jSettingsLineProcess(lineClean)
+		if section then
+			if currentSection == inSection and not bSucces then
+				-- We were the section we're looking for and now changing: key was not present, create...
+				-- msg("creating new key")
+				newStr = newStr .. inName .. "=" .. inValue .. "\n"
+				bSucces = true
+			end
+			currentSection = section
+		elseif name == inName then
+			if currentSection == inSection or bSectionOptional then
+				-- msg("found our key: " .. name .. "=" .. value .. " [" .. tostring(currentSection) .. "]")
+				line = inName .. "=" .. inValue
+				bSucces = true
+			end
+		end
+
+		newStr = newStr .. line .. "\n"
+	end
+
+	if not bSucces and bSectionOptional then
+		-- Neither the key nor section was found, but section is optional (backwards compatibility issue) so create at end of file
+		newStr = newStr .. inName .. "=" .. inValue .. "\n"
+		bSucces = true
+	end
+	if not bSucces then
+		msg("Could not update ini value, prolly section does not exist. "  .. inName .. "=" .. inValue .. " [" .. inSection .. "]")
+	end
+
+	return newStr, bSucces
 end
 
 function jSettingsCreate(file_name, default_file, content)
@@ -60,7 +169,7 @@ function jSettingsCreate(file_name, default_file, content)
     end
 end
 
-function _jReadSettingsProcessValue(value)
+function _jSettingsReadProcessValue(value)
 	value = jStringTrim(value)
     if value == "true" then
         value = true

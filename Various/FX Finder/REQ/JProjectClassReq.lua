@@ -155,12 +155,12 @@ MEDIA_ITEM_TAKE_GET_INFO_VALUES = {
 	-- D_PAN : double *, take pan
 	-- D_PANLAW : double *, take pan law (-1.0=default, 0.5=-6dB, 1.0=+0dB, etc)
 	playrate =  "D_PLAYRATE", -- : double *, take playrate (1.0=normal, 2.0=doublespeed, etc)
-	pitch = "D_PITCH" --: double *, take pitch adjust (in semitones, 0.0=normal, +12 = one octave up, etc)
+	pitch = "D_PITCH", --: double *, take pitch adjust (in semitones, 0.0=normal, +12 = one octave up, etc)
 	-- B_PPITCH, bool *, preserve pitch when changing rate
 	-- I_CHANMODE, int *, channel mode (0=normal, 1=revstereo, 2=downmix, 3=l, 4=r)
 	-- I_PITCHMODE, int *, pitch shifter mode, -1=proj default, otherwise high word=shifter low word = parameter
 	-- I_CUSTOMCOLOR : int *, custom color, OS dependent color|0x100000 (i.e. ColorToNative(r,g,b)|0x100000). If you do not |0x100000, then it will not be used (though will store the color anyway).
-	-- IP_TAKENUMBER : int, take number within the item (read-only, returns the take number directly)
+	number = "IP_TAKENUMBER", -- : int, take number within the item (read-only, returns the take number directly)
 	-- P_TRACK : pointer to MediaTrack (read-only)
 	-- P_ITEM : pointer to MediaItem (read-only)
 	-- P_SOURCE : PCM_source *. Note that if setting this, you should first retrieve the old source, set the new, THEN delete the old.

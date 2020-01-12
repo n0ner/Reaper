@@ -40,7 +40,8 @@ function getFilesRecursive(sDir, bSkipRecursive, t)
 end
 
 function jFilesRemoveExt(fn)
-    return fn:match("(.+)%..+")
+	local r = fn:match("(.+)%..+")
+    return r or fn -- if there is no . in the name return the original
 end
 
 function jFilesGetFilename(path)

@@ -1,6 +1,6 @@
 --[[
 @author n0ne
-@version 0.7.0
+@version 0.7.2
 @noindex
 --]]
 
@@ -61,14 +61,28 @@ function jGui:init()
 	gfx.setfont(1, self.settings.font, self.settings.fontsize)
 
 	gfx.clear = 3355443
+	self:_resize() -- call once to do initial drawing
 	self:updateFocusOrder()
 end
 
 function jGui:refresh()
+	if (self.width ~= gfx.w or self.height ~= gfx.h) then
+		self:_resize()
+	end
 	self:getControlHover()
 	self:mouseUpdate()
 	self:draw()
 	gfx.drawstr(" ")
+end
+
+function jGui:_resize()
+	self.width = gfx.w
+	self.height = gfx.h
+	self:onResize()
+end
+
+function jGui:onResize()
+	-- user defined
 end
 
 function jGui:processKeyboard()
@@ -82,12 +96,31 @@ function jGui:processKeyboard()
 			self:onEsc()		
 		elseif self.lastChar == self.kb.enter and self.focus then -- ENTER
 			self.focus:_onEnter()
-		elseif (self.lastChar == self.kb.tab and not self.kb.shift()) or self.lastChar == self.kb.arrow_down then --  TAB or ARROW DOWN
-			self:setFocus(self:getNextFocus())
-		elseif (self.lastChar == self.kb.tab and self.kb.shift()) or self.lastChar == self.kb.arrow_up then --  SHIFT TAB or ARROW UP
-			self:setFocus(self:getNextFocus(true))
+		elseif self.lastChar == self.kb.tab and not self.kb.shift() then -- TAB
+			if self.focus then
+				self.focus:_onTab()
+			else
+				self:focusNext()
+			end
+		elseif self.lastChar == self.kb.arrow_down then -- ARROW DOWN
+			if self.focus then
+				self.focus:_onArrowDown()
+			else
+				self:focusNext()
+			end
+		elseif (self.lastChar == self.kb.tab and self.kb.shift()) then -- SHIFT TAB
+			if self.focus then
+				self.focus:_onShiftTab()
+			else
+				self:focusPrev()
+			end		
+		elseif self.lastChar == self.kb.arrow_up then --   ARROW UP
+			if self.focus then
+				self.focus:_onArrowUp()
+			else
+				self:focusPrev()
+			end			
 		else -- A key was pressed. Send it to the control with keyboard focus
-		
 			if self.focus then
 				self.focus:_onKeyboard(self.lastChar)
 			end
@@ -97,6 +130,14 @@ function jGui:processKeyboard()
 		self:onClose()
 	end
 	return self.lastChar
+end
+
+function jGui:focusNext()
+	self:setFocus(self:getNextFocus())
+end
+
+function jGui:focusPrev()
+	self:setFocus(self:getNextFocus(true))
 end
 
 function jGui:update()
@@ -185,6 +226,12 @@ function jGui:controlAddAll(tControls)
 end
 
 function jGui:controlGet(id)
+	if id > #self.controls then
+		msg("Control get id > # controls: " .. id .. ", " .. #self.controls)
+	end
+	if self.controls[id] == nil then
+		msg("Control doenst exist: " .. id .. ", " .. #self.controls)
+	end
 	return self.controls[id]
 end
 
@@ -192,6 +239,34 @@ function jGui:controlDeleteAll()
 	self.controls = {}
 	self.controlActive = false
 	self.controlHover = false
+end
+
+function jGui:controlDelete(inC)
+	-- msg("num controls: " .. #self.controls)
+	-- msg("num focus: " .. #self.focusOrder)
+	local bSucces = false
+	for i, c in ipairs(self.controls) do
+		if self.controls[i] == inC then
+			-- self:controlDeleteId(i)
+			table.remove(self.controls, i)
+			bSucces = true
+		end
+	end
+	if not bSucces then msg("Unable to remove control!") end
+	for i, c in pairs(self.focusOrder) do
+		if self.focusOrder[i] == inC then
+			table.remove(self.focusOrder, i)
+			-- msg("remove from focus order")
+		end
+	end
+
+	if self.controlActive == inC then self.controlActive = false end
+	if self.controlHover == inC then self.controlHover = false end
+	if self.controlDrag == inC then self.controlDrag = false end
+	if self.focus == inC then self.focus = false end
+
+	self:updateFocusOrder()
+
 end
 
 function jGui:mouseUpdate()
@@ -307,6 +382,12 @@ function jGui:controlSetAll(tControls, key, value)
 	end
 end
 
+function jGui:controlInitAll()
+	for i, j in pairs(self.controls) do
+		j:_init()
+	end
+end
+
 function jGui:controlGetAll(tControls, key, value)
 	local tResult = {}
 	
@@ -332,7 +413,6 @@ end
 function jGui:setFocus(c)
 	-- Sets which gui control has focus.
 	-- Set c to false to lose all focus
-	
 	if c == self.focus then -- already focussed on this control, nothing changes
 		return false
 	end
@@ -347,6 +427,7 @@ function jGui:setFocus(c)
 	else
 		self.focus = false
 	end
+	-- msg("focus on: " .. tostring(self.focus) .. "/" .. #self.focusOrder)
 end
 
 function jGui:getFocusIndex()

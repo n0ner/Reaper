@@ -965,6 +965,11 @@ function JItem.prototype:getStateChunk()
 		return str
 	end
 end
+
+function JItem.prototype:setStateChunk(newChunk)
+	local r = reaper.SetItemStateChunk(self:getReaperItem(), newChunk)
+	return r
+end
 -- PROJECT
 JProject = {}
 JProject.prototype = {pId = 0}

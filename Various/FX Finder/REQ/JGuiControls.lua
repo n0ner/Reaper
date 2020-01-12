@@ -266,6 +266,50 @@ function jGuiControl:onKeyboard(key)
 	-- User defined
 end
 
+function jGuiControl:_onTab()
+	if self:onTab() then
+		self.parentGui:focusNext()
+	end
+end
+
+function jGuiControl:_onShiftTab()
+	if self:onShiftTab() then
+		self.parentGui:focusPrev()
+	end
+end
+
+function jGuiControl:onTab()
+	-- user defined, return true to shift focus, false to keep it
+	return true
+end
+
+function jGuiControl:onShiftTab()
+	-- user defined, return true to shift focus, false to keep it
+	return true
+end
+
+function jGuiControl:_onArrowDown()
+	if self:onArrowDown() then
+		self.parentGui:focusNext()
+	end
+end
+
+function jGuiControl:_onArrowUp()
+	if self:onArrowUp() then
+		self.parentGui:focusPrev()
+	end
+end
+
+function jGuiControl:onArrowDown()
+	-- user defined, return true to shift focus, false to keep it
+	return true
+end
+
+function jGuiControl:onArrowUp()
+	-- user defined, return true to shift focus, false to keep it
+	return true
+end
+
 function jGuiControl:_onFocus()
 	-- Called when a control gets focus by clicking on it or by the keyboard
 	self.focus = true
