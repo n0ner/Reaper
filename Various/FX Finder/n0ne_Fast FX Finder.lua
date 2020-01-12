@@ -7,11 +7,15 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.16
+@version 0.7.17
 @changelog
-	+ Also add VST's to items (hold control)
-	+ Highlighting of search term
-	- Reset scrol position bug fix
+	+ Allow resizing of GUI and change number of results
+	+ Store window position
+	+ Scroll down list with tab and arrow keys
+	+ Add setting to open FX in chain
+	+ Fix searching in hidden filename parts
+	+ Add support for searching with tags: @fx, @chain, @temp, @i, @vst3, @vst
+	+ Improve format of ini file. Backwards compatible but recommended to update (see REQ/ settings default)
 @provides
 	REQ/j_file_functions.lua
 	REQ/JProjectClass.lua
