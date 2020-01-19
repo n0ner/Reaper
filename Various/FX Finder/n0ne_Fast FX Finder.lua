@@ -7,8 +7,16 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.17
+@version 0.7.18
 @changelog
+	0.7.18
+	+ Allow blacklist search to also look in plugin filename (add dll to skip VST version or VSTi to skip instruments for example)
+	+ Only pull actual template and fxchain files from directories
+	+ Don't filter when you start typing a '@' tag. If you want to filter for a word starting with '@', escape it like: \@
+	+ Added support for JSFX and @js tag!
+	+ Cleaned up default settings ini, left some test comments in there ;p
+	+ Add (experimental) support for loading actions. Turn on in settings. Can use @a tag. Right now only main window actions.
+	0.7.17
 	+ Allow resizing of GUI and change number of results
 	+ Store window position
 	+ Scroll down list with tab and arrow keys
@@ -48,17 +56,56 @@ SETTINGS_BASE_FOLDER = script_path
 SETTINGS_INI_FILE = script_path .. "fx-finder-settings.ini"
 SETTINGS_DEFAULT_FILE = script_path .. "REQ/fx-finder-settings-default.ini"
 
-
 function msg(m)
-  return reaper.ShowConsoleMsg(tostring(m) .. "\n")
+	return reaper.ShowConsoleMsg(tostring(m) .. "\n")
+end
+
+function jGetActions()
+	-- local blacklist = {".*MIDI CC/OSC only%)$", ".*MIDI/OSC only.*", ".*MIDI CC/mousewheel.*", ".*MIDI CC relative/mousewheel.*"}
+	-- local blacklist = {}
+	local tResult = {}
+	
+	local name = ""
+
+	-- Main=0, Main (alt recording)=100, MIDI Editor=32060, MIDI Event List Editor=32061, MIDI Inline Editor=32062, Media Explorer=32063
+	
+	local i = 0
+	local go = 1
+	local section = 0
+	while go > 0 do
+		go, name = reaper.CF_EnumerateActions(section, i, "")
+		if go > 0 then
+			local command = reaper.CF_GetCommandText(section, i)
+			-- local command2 =  reaper.ReverseNamedCommandLookup(i)
+			-- if not _nameOnBlacklist(blacklist, name) then
+				tResult[#tResult + 1] = {name = name, desc = name, action_id = i, action = true, rating = 0, command = go, section = section} -- command2 = command2}
+			-- end
+		end
+		i = i + 1
+
+	end
+
+	-- local i = 0
+	-- local go = 1
+	-- local section = 32060
+	-- while go > 0 do
+	-- 	go, name = reaper.CF_EnumerateActions(section, i, "")
+	-- 	local command = reaper.CF_GetCommandText(section, i)
+	-- 	tResult[#tResult + 1] = {name = name, desc = name, action_id = i, action = true, rating = 0, command = go, section = section} -- command2 = command2}
+	-- 	i = i + 1
+	-- end
+
+	return tResult
 end
 
 function jWriteVstData(file_name, t)
 	-- Write extended vst usage data
 	local sContent = ""
 	
-	for i, l in ipairs(t) do
-		sContent = sContent .. l.name .. "," .. l.rating .. "\n"
+	for i, l in ipairs(t) do -- this prolly doesn't have to write 0 ratings as that is the default...
+		if not l.action then -- for now don't store action ratings
+			sContent = sContent .. l.name .. "," .. l.rating .. "\n"
+		end
 	end
 	
 	local file = io.open(file_name, "w")
@@ -82,33 +129,113 @@ function jReadVstData(file_name)
 	return vstData
 end
 
-function jReadVstIni(ini_file_name, tRatingsData)
+function jReadJsfxIniGetValuesFromString(st)
+	local doubleQuotedP1, doubleQuotedP2 = st:match("^\"(.-)\" (.+)")
+	local singleQuotedP1, singleQuotedP2 = st:match("^'(.-)' (.+)")
+	local noQuotedP1, noQuotedP2 = st:match("^(.-) (.+)")
+
+	local result1 = doubleQuotedP1 or singleQuotedP1 or noQuotedP1
+	local nameLineP2 = doubleQuotedP2 or singleQuotedP2 or noQuotedP2
+
+	if result1 then
+		local doubleQuotedP2 = nameLineP2:match("^\"(.-)\"")
+		local singleQuotedP2 = nameLineP2:match("^'(.-)'")
+		local noQuotedP2 = nameLineP2:match("^(.+)")
+
+		local result2 = doubleQuotedP2 or singleQuotedP2 or noQuotedP2
+		if (result1 and result2) then
+			-- msg(result1 .. " :: " .. result2)
+			return result1, result2
+		end
+	end
+	-- else
+	-- msg("UNKNOWN: " .. st)
+	return false
+end
+
+function jReadJsfxIni(ini_file_name, tRatingsData)
 	local i = 0
 	local tResult = {}
-	local tLookup = {}
+	
+	if not reaper.file_exists(ini_file_name) then
+		msg("Ini file does not exist: " .. ini_file_name)
+		return tResult
+	end
+
+	for line in io.lines(ini_file_name) do
+		-- local versionLine = line:match("^VERSION.*")
+		local nameLine = line:match("^NAME (.+)$")
+		-- local revLine = line:match("^REV (.+)$")
+
+		if nameLine then
+			-- msg("NAME: " .. nameLine)
+			local fxName, fxDesc = jReadJsfxIniGetValuesFromString(nameLine)
+			if fxName then -- succes, add!
+				local sName = "jsfx: " .. fxName -- add to make different from vst's with same name
+				fxDesc = fxDesc:gsub("^JS: ", "") -- remove "JS: " from description
+				local iRating = _getRating(tRatingsData, sName)
+				tResult[#tResult + 1] =	{	name = sName,
+											desc = fxDesc,
+											filename = fxName,
+											jsfx = true,
+											rating = iRating
+										}
+			end
+		end
+	end
+	return tResult
+end
+
+function _getRating(tRatingsData, sName)
+	if tRatingsData[sName] then
+		return math.floor(tRatingsData[sName].rating)
+	else
+		return 0
+	end
+end
+
+function _nameOnBlacklist(tBlacklist, name)
+	for _, skipName in ipairs(tBlacklist) do
+		if (name):find(skipName) then
+			return true
+		end
+	end
+	return false
+end
+
+function jReadVstIni(ini_file_name, tRatingsData)
+	local i = 0
+	local tResult = {} -- the resulting table with VST's in it
+	local tLookup = {} -- a reversed table where tLookup["vst name"] = index in tResult (for checking if this fx already exists)
+
+	if not reaper.file_exists(ini_file_name) then
+		msg("Ini file does not exist: " .. ini_file_name)
+		return tResult
+	end
+
 	for line in io.lines(ini_file_name) do
 		-- Safety checking the first line
 		if i == 0 then
-			if line ~= "[vstcache]" then return false end
+			if line ~= "[vstcache]" then 
+				msg("VST ini file looks different than expected, not loading VST's, file: " .. ini_file_name)
+				return false 
+			end
 		else
 			local sName = line:match(".-,.-,(.+)") or false
-
+			local sTypePart = line:match("(.+)=.+")
 			
 			if sName and sName ~= "<SHELL>" then
-				local skip = false
-				for _, skipName in ipairs(PLUGIN_BLACKLIST) do
-					if sName:find(skipName) then
-						skip = true
-						break
-					end
-				end
+				local skip = _nameOnBlacklist(PLUGIN_BLACKLIST, sName..sTypePart)
+				-- for _, skipName in ipairs(PLUGIN_BLACKLIST) do
+				-- 	if (sName..sTypePart):find(skipName) then
+				-- 		skip = true
+				-- 		break
+				-- 	end
+				-- end
 				
 				if not skip then
 					-- Get rating
-					local iRating = 0
-					if tRatingsData[sName] then
-						iRating = math.floor(tRatingsData[sName].rating)
-					end
+					local iRating = _getRating(tRatingsData, sName)
 					
 					local bInstrument = nil
 					if line:find(".+!!!VSTi") then
@@ -116,7 +243,6 @@ function jReadVstIni(ini_file_name, tRatingsData)
 						-- sName = sName:sub(1,-8)
 					end
 					
-					local sTypePart = line:match("(.+)=.+")
 					local bDll = nil
 					local bVst3 = nil
 					local bVst = nil
@@ -127,9 +253,11 @@ function jReadVstIni(ini_file_name, tRatingsData)
 					elseif sTypePart:find("vst$") or sTypePart:find("vst.") then
 						bVst = true
 					end
-				
+					
+					local desc =  _removeVstiString(sName)
+
 					if not tLookup[sName] then
-						table.insert(tResult, {name = sName, line = i, instrument = bInstrument, dll = bDll, vst3 = bVst3, vst=bVst, rating = iRating})
+						table.insert(tResult, {name = sName, desc = desc, line = i, instrument = bInstrument, dll = bDll, vst3 = bVst3, vst=bVst, rating = iRating})
 						tLookup[sName] = #tResult
 					elseif bDll then -- also found dll version
 						tResult[tLookup[sName]].dll = true
@@ -160,11 +288,14 @@ function getTemplates(tDirs, sRootDir, tRatingsData)
 		if _jIsTemplate(v[1]) then
 			local sName = v[1] .. " (" .. v[2]:gsub(sRootDir, "") .. ")"
 			-- Get rating
-			local iRating = 0
-			if tRatingsData[sName] then
-				iRating = math.floor(tRatingsData[sName].rating)
-			end
+			local iRating = _getRating(tRatingsData, sName)
+			-- local iRating = 0
+			-- if tRatingsData[sName] then
+			-- 	iRating = math.floor(tRatingsData[sName].rating)
+			-- end
+			local desc = sName:gsub(".RTrackTemplate", "")
 			tTemplatesData[count] = {	name = sName,
+									desc = desc,
 									filename = v[1],
 									path = v[2],
 									tracktemplate = true,
@@ -201,7 +332,9 @@ function getFXChains(tDirs, sRootDir, tRatingsData)
 			if tRatingsData[sName] then
 				iRating = math.floor(tRatingsData[sName].rating)
 			end
-			tFXChainData[count] = {		name = sName,
+			local desc = sName:gsub(".RfxChain", "")
+			tFXChainData[count] = {	name = sName,
+									desc = desc,
 									filename = v[1],
 									path = v[2],
 									fxchain = true,
@@ -227,11 +360,13 @@ function findVst(vstTable, sPattern, iInstance, iMaxResults, find_plain)
 	end	
 
 	for i, t in ipairs(vstTable) do
-		bMatch = true
+		local bMatch = true
 		-- Look for every word in the string
 		for token in string.gmatch(sPattern, "[^%s]+") do
 			-- local name = t.name
-			local name = _makeFxNameSearchable(t.name)
+			-- local name = _makeFxNameSearchable(t.name)
+			local name = t.desc -- no longer search in name but in description
+			token = token:lower()
 			if token == "@fx" or token == "@vst" then 
 				if not t.dll and not t.vst and not t.vst3 then
 					bMatch = false
@@ -257,9 +392,27 @@ function findVst(vstTable, sPattern, iInstance, iMaxResults, find_plain)
 					bMatch = false
 					break
 				end
-			elseif not name:lower():find(token:lower(), 1, find_plain) then
-				bMatch = false
-				break
+			elseif token == "@js" then 
+				if not t.jsfx then
+					bMatch = false
+					break
+				end
+			elseif token == "@a" then 
+				if not t.action then
+					bMatch = false
+					break
+				end
+			elseif token:match("^@.*") then -- prevents when you start typing a tag that all the search results disappear
+				bMatch = true
+			-- elseif not name:lower():find(token:lower(), 1, find_plain) then
+			-- 	bMatch = false
+			-- 	break
+			else
+				token = token:gsub("\\@", "@") -- replace escaped '@'
+				bMatch = name:lower():find(token:lower(), 1, find_plain)
+				if not bMatch then
+					break
+				end
 			end
 		end
 
@@ -464,7 +617,7 @@ function showSearchResults(tButtons, tResults)
 
 		if tResults and iStart <= #tResults then
 			local fx = tResults[iStart]
-			b.label = _makeFxLabel(fx.name)
+			b.label = fx.desc
 			b.visible = true
 			info.visible = true
 			b.highlight = highlights
@@ -494,6 +647,14 @@ function showSearchResults(tButtons, tResults)
 
 			if fx.fxchain then
 				tTypes[#tTypes+1] = "FXCHAIN"
+			end
+
+			if fx.jsfx then
+				tTypes[#tTypes+1] = "JSFX"
+			end
+
+			if fx.action then
+				tTypes[#tTypes+1] = "ACTION"
 			end
 
 			local sTypes = ""
@@ -560,6 +721,7 @@ function selectFx(i)
 				end
 			end
 
+		-- LEAVE THIS FOR FUTURE !!!!!!!!!!
 		-- else -- control held, try to add chain to items
 			-- reaper.ClearConsole()
 			-- for i in p:selectedItems() do
@@ -593,15 +755,26 @@ function selectFx(i)
 
 			-- end
 		end
+	elseif fx.action then
+		reaper.Main_OnCommandEx(fx.command, 1, 0)
+		msg(fx.command)
+		msg(fx.name)
 	else
-		-- this is a vst
+		-- this is a vst or a jsfx
 		local typeInfo = ""
 		if tVstData[fx.id].vst3 and PREFER_VST3 then -- prefer VST3 where available
 			typeInfo = "VST3:"
 		end
+
+		local fxString = ""
+		if fx.jsfx then
+			fxString = fx.filename
+		else
+			fxString = typeInfo .. _removeVstiString(tVstData[fx.id].name)
+		end
 		if not GUI.kb.control() then -- Control not held, insert on tracks
 			for t in p:selectedTracks() do
-				local r = t:addFx(typeInfo .. _removeVstiString(tVstData[fx.id].name))
+				local r = t:addFx(fxString)
 				if r then
 					r:show(TRACK_SHOW_FLAG)
 				end
@@ -609,7 +782,7 @@ function selectFx(i)
 		else -- Control held, insert on items
 			for i in p:selectedItems() do
 				local take = i:getActiveTake()
-				local r = take:addFx(typeInfo .. _removeVstiString(tVstData[fx.id].name))
+				local r = take:addFx(fxString)
 				if r >= 0 then
 					reaper.TakeFX_Show(take:getReaperTake(), r, ITEM_SHOW_FLAG) -- show FX
 				end
@@ -627,21 +800,21 @@ function _removeVstiString(s)
 	return s:gsub("!!!VSTi", "")
 end
 
-function _makeFxLabel(s)
-	s = _removeVstiString(s) -- remove !!!VSTi indicator
-	s = s:gsub(".RTrackTemplate", "") -- remove tracktemplate extention
-	s = s:gsub(".RfxChain", "") -- remove tracktemplate extention
---	s = s:gsub("\\%)", ")") -- remove ugly trailing slash from template folders
-	return s
-end
+-- function _makeFxLabel(s)
+-- 	s = _removeVstiString(s) -- remove !!!VSTi indicator
+-- 	s = s:gsub(".RTrackTemplate", "") -- remove tracktemplate extention
+-- 	s = s:gsub(".RfxChain", "") -- remove tracktemplate extention
+-- --	s = s:gsub("\\%)", ")") -- remove ugly trailing slash from template folders
+-- 	return s
+-- end
 
-function _makeFxNameSearchable(s)
-	s = _removeVstiString(s) -- remove !!!VSTi indicator
-	s = s:gsub(".RTrackTemplate", "") -- remove tracktemplate extention
-	s = s:gsub(".RfxChain", "") -- remove tracktemplate extention
---	s = s:gsub("\\%)", ")") -- remove ugly trailing slash from template folders
-	return s
-end
+-- function _makeFxNameSearchable(s)
+-- 	s = _removeVstiString(s) -- remove !!!VSTi indicator
+-- 	s = s:gsub(".RTrackTemplate", "") -- remove tracktemplate extention
+-- 	s = s:gsub(".RfxChain", "") -- remove tracktemplate extention
+-- --	s = s:gsub("\\%)", ")") -- remove ugly trailing slash from template folders
+-- 	return s
+-- end
 
 function init()
 	-- reaper.ClearConsole()
@@ -666,6 +839,16 @@ function init()
 	
 	tFXChains = getFXChains(FXCHAIN_SUB_DIRS, FXCHAIN_ROOT_DIR, tRatingData)
 	tVstData = jTablesGlue(tFXChains, tVstData)
+
+	local tJsfx = jReadJsfxIni(JSFX_INI_FILE, tRatingData)
+	tVstData = jTablesGlue(tJsfx, tVstData)
+
+	-- local time = os.clock()
+	if LOAD_ACTIONS then
+		local tActions = jGetActions()
+		tVstData = jTablesGlue(tActions, tVstData)
+	end
+	-- msg(os.clock() - time)
 
 	table.sort(tVstData, sortByRating)
 
@@ -733,10 +916,12 @@ function init()
 			-- search changed, update results
 			UPDATE_RESULTS = false
 			table.sort(tVstData, sortByRating)
-			tSearchResults = findVst(tVstData, textBox.value, false, MAX_RESULTS)
+			if lastSearch ~= textBox.value then -- only search again when input changes, not on scroll
+				tSearchResults = findVst(tVstData, textBox.value, false, MAX_RESULTS)
+				lastSearch = textBox.value
+			end
 			RESULT_COUNT = #tSearchResults
 			showSearchResults(tResultButtons, tSearchResults)
-			lastSearch = textBox.value
 		end
 	end
 	
@@ -805,6 +990,16 @@ function loadSettings()
 		SETTINGS['item_show_flag'] = {3}
 	end
 
+	if not SETTINGS['jsfx_ini_file'] then
+		jSettingsWriteToFile(SETTINGS_INI_FILE, "files", "jsfx_ini_file", "reaper-jsfx.ini", true)
+		SETTINGS['jsfx_ini_file'] = {"reaper-jsfx.ini"}
+	end
+
+	if not SETTINGS['load_actions'] then
+		jSettingsWriteToFile(SETTINGS_INI_FILE, "fx", "load_actions", "false", true)
+		SETTINGS['load_actions'] = {false}
+	end
+
 	-- if not SETTINGS['ultraschall_api_file'] then
 	-- 	jSettingsWriteToFile(SETTINGS_INI_FILE, "files", "ultraschall_api_file", "UserPlugins/ultraschall_api.lua")
 	-- 	SETTINGS['ultraschall_api_file'] = {"UserPlugins/ultraschall_api.lua"}
@@ -813,13 +1008,16 @@ function loadSettings()
 	
 	-- if true then return false end
 
-	VST_INI_FILE = 		reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'vst_ini_file', "string")
+	VST_INI_FILE = 	reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'vst_ini_file', "string")
+	JSFX_INI_FILE = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'jsfx_ini_file', "string")
 	DATA_INI_FILE = SETTINGS_BASE_FOLDER .. "/" .. jSettingsGet(SETTINGS, 'fx_finder_data_file', "string")
 	-- ULTRASCHALL_API_FILE = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'ultraschall_api_file', "string")
 
 	PREFER_VST3 = 		jSettingsGet(SETTINGS, 'prefer_vst3', "boolean")
 	ITEM_SHOW_FLAG = jSettingsGet(SETTINGS, 'item_show_flag', "number")
 	TRACK_SHOW_FLAG = jSettingsGet(SETTINGS, 'track_show_flag', "number")
+
+	LOAD_ACTIONS = jSettingsGet(SETTINGS, 'load_actions', "boolean")
 
 
 	TEMPLATE_ROOT_DIR = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'template_root_dir', "string")

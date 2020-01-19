@@ -4,7 +4,7 @@
 @noindex
 --]]
 
-J_SCRIPT_DIR = reaper.GetResourcePath() .. "/Scripts/LUA/"
+J_SCRIPT_DIR = reaper.GetResourcePath() .. "/Scripts/LUA/" -- This should not be there for reascript version??
 package.path = package.path .. ";" .. J_SCRIPT_DIR .. "?.lua"
 
 require('REQ.JGuiColors')
