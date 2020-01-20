@@ -12,6 +12,9 @@ local jKeyboard = {
 	arrow_down = 1685026670,
 	arrow_left = 1818584692,
 	arrow_right = 1919379572,	
+
+	home = 1752132965,
+	_end = 6647396,
 	
 	
 	space = 32, 

@@ -424,24 +424,33 @@ jGuiTextInput = jGuiControl:new(
 	_carret_blink = false
 })
 
-
 function jGuiTextInput:_onKeyboard(key)
-	if key == self.kb.backspace then
-	self.value = self.value:sub(0, self.carret_pos - 1) .. self.value:sub(self.carret_pos + 1, -1)
-	self:__setCarretPos(self.carret_pos - 1)
+	if key == self.kb.backspace and not self.kb.control() then
+		if self.carret_pos > 0 then -- Can't backspace when at the beginning of the string
+			self.value = self.value:sub(0, self.carret_pos - 1) .. self.value:sub(self.carret_pos + 1, -1)
+			self:__setCarretPos(self.carret_pos - 1)
+		end
 	elseif key == self.kb.delete then
 		self.value = self.value:sub(0, self.carret_pos) .. self.value:sub(self.carret_pos + 2, -1)
-	elseif key == self.kb.ctrl_backspace then
+	elseif key == self.kb.backspace and self.kb.shift() and self.kb.control() then
 		self.value = ""
 		self:__setCarretPos(0)
+	elseif key == self.kb.backspace and self.kb.control() then --self.kb.ctrl_backspace then
+		self.value = self.value:match("(.-)%s*$") -- trim ending spaced
+		local last_space = self.value:find("%s[^%s]*$") or 0
+		self.value = self.value:sub(1, last_space)
+		self:__setCarretPos(last_space)
 	elseif key == self.kb.arrow_left then
 		self:__setCarretPos(self.carret_pos - 1)
 	elseif key == self.kb.arrow_right then
 		self:__setCarretPos(self.carret_pos + 1)
+	elseif key == self.kb.home then
+		self:__setCarretPos(0)
+	elseif key == self.kb._end then
+		self:__setCarretPos(#self.value)
 	elseif self.kb:isChar(key) then
 		self.value = self.value:sub(0, self.carret_pos) .. string.char(key) .. self.value:sub(self.carret_pos + 1, -1)
 		self:__setCarretPos(self.carret_pos + 1)
-
 	end
 	
 	self.label = self.value

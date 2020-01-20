@@ -9,6 +9,9 @@
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
 @version 0.7.18
 @changelog
+	0.7.19
+	+ Fixed textbox bug
+	+ Improve textbox: use ctrl+backspace for deleting the last word, ctrl+shift+backspace to clear the field. Home and end work too!
 	0.7.18
 	+ Allow blacklist search to also look in plugin filename (add dll to skip VST version or VSTi to skip instruments for example)
 	+ Only pull actual template and fxchain files from directories
@@ -949,6 +952,8 @@ end
 function loop()
 	if GUI:loop() then 
 		reaper.defer(loop)
+	else
+		gfx.quit()
 	end
 end
 
