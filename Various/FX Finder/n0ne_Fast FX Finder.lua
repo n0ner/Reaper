@@ -9,6 +9,8 @@
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
 @version 0.7.19
 @changelog
+	0.7.20
+	+ Add Audio Unit support
 	0.7.19
 	+ Fixed textbox bug
 	+ Improve textbox: use ctrl+backspace for deleting the last word, ctrl+shift+backspace to clear the field. Home and end work too!
@@ -275,6 +277,44 @@ function jReadVstIni(ini_file_name, tRatingsData)
 		i = i + 1
 	end
 	
+	return tResult
+end
+
+function jReadAuIni(ini_file_name, tRatingsData)
+	local tResult = {}
+	
+	if not reaper.file_exists(ini_file_name) then
+		msg("Ini file does not exist: " .. ini_file_name)
+		return tResult
+	end
+
+	local i = 1
+	for line in io.lines(ini_file_name) do
+		if i == 1 and line ~= "[auplugins]" then
+			msg("First line of AU ini file does not match, not loading Audio Units.")
+			return {}
+		else
+			-- local versionLine = line:match("^VERSION.*")
+			local vendor, name, instrument = line:match("^(.-): (.+)=(.+)$")
+			-- local revLine = line:match("^REV (.+)$")
+			local au = instrument == "<!inst>"
+			local aui = instrument == "<inst>"
+			if vendor and name and instrument then
+				local sName = "au: " .. name -- add to make different from vst's with same name
+				local fxDesc = name .. " (" .. vendor .. ")"
+				local iRating = _getRating(tRatingsData, sName)
+				tResult[#tResult + 1] =	{	name = sName,
+											desc = fxDesc,
+											filename = name,
+											au = au,
+											aui = aui,
+											rating = iRating
+										}
+			end
+		end
+
+		i = i + 1
+	end
 	return tResult
 end
 
@@ -660,6 +700,14 @@ function showSearchResults(tButtons, tResults)
 				tTypes[#tTypes+1] = "ACTION"
 			end
 
+			if fx.au then
+				tTypes[#tTypes+1] = "AU"
+			end
+
+			if fx.aui then
+				tTypes[#tTypes+1] = "AUi"
+			end
+
 			local sTypes = ""
 			for _, sT in ipairs(tTypes) do
 				sTypes = sTypes .. " " .. sT
@@ -760,8 +808,8 @@ function selectFx(i)
 		end
 	elseif fx.action then
 		reaper.Main_OnCommandEx(fx.command, 1, 0)
-		msg(fx.command)
-		msg(fx.name)
+		-- msg(fx.command)
+		-- msg(fx.name)
 	else
 		-- this is a vst or a jsfx
 		local typeInfo = ""
@@ -772,6 +820,10 @@ function selectFx(i)
 		local fxString = ""
 		if fx.jsfx then
 			fxString = fx.filename
+		elseif fx.au then
+			fxString = "AU:" .. fx.filename
+		elseif fx.aui then
+			fxString = "AUi:" .. fx.filename
 		else
 			fxString = typeInfo .. _removeVstiString(tVstData[fx.id].name)
 		end
@@ -845,6 +897,11 @@ function init()
 
 	local tJsfx = jReadJsfxIni(JSFX_INI_FILE, tRatingData)
 	tVstData = jTablesGlue(tJsfx, tVstData)
+
+	if LOAD_AU then
+		local tAu = jReadAuIni(AU_INI_FILE, tRatingData)
+		tVstData = jTablesGlue(tAu, tVstData)
+	end
 
 	-- local time = os.clock()
 	if LOAD_ACTIONS then
@@ -1005,6 +1062,16 @@ function loadSettings()
 		SETTINGS['load_actions'] = {false}
 	end
 
+	if not SETTINGS['load_au'] then
+		jSettingsWriteToFile(SETTINGS_INI_FILE, "fx", "load_au", "true", true)
+		SETTINGS['load_au'] = {true}
+	end
+
+	if not SETTINGS['au_ini_file'] then
+		jSettingsWriteToFile(SETTINGS_INI_FILE, "files", "au_ini_file", "reaper-auplugins64.ini", true)
+		SETTINGS['au_ini_file'] = {"reaper-auplugins64.ini"}
+	end
+
 	-- if not SETTINGS['ultraschall_api_file'] then
 	-- 	jSettingsWriteToFile(SETTINGS_INI_FILE, "files", "ultraschall_api_file", "UserPlugins/ultraschall_api.lua")
 	-- 	SETTINGS['ultraschall_api_file'] = {"UserPlugins/ultraschall_api.lua"}
@@ -1014,6 +1081,7 @@ function loadSettings()
 	-- if true then return false end
 
 	VST_INI_FILE = 	reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'vst_ini_file', "string")
+	AU_INI_FILE = 	reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'au_ini_file', "string")
 	JSFX_INI_FILE = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'jsfx_ini_file', "string")
 	DATA_INI_FILE = SETTINGS_BASE_FOLDER .. "/" .. jSettingsGet(SETTINGS, 'fx_finder_data_file', "string")
 	-- ULTRASCHALL_API_FILE = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'ultraschall_api_file', "string")
@@ -1021,8 +1089,13 @@ function loadSettings()
 	PREFER_VST3 = 		jSettingsGet(SETTINGS, 'prefer_vst3', "boolean")
 	ITEM_SHOW_FLAG = jSettingsGet(SETTINGS, 'item_show_flag', "number")
 	TRACK_SHOW_FLAG = jSettingsGet(SETTINGS, 'track_show_flag', "number")
-
 	LOAD_ACTIONS = jSettingsGet(SETTINGS, 'load_actions', "boolean")
+	
+	if reaper.GetOS() == "OSX64" or reaper.GetOS() == "OSX32" then
+		LOAD_AU = jSettingsGet(SETTINGS, 'load_au', "boolean")
+	else
+		LOAD_AU = false
+	end
 
 
 	TEMPLATE_ROOT_DIR = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'template_root_dir', "string")
