@@ -7,7 +7,7 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.19
+@version 0.7.20
 @changelog
 	0.7.20
 	+ Add Audio Unit support
