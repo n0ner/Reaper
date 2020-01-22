@@ -7,9 +7,9 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.20
+@version 0.7.21
 @changelog
-	0.7.20
+	0.7.21
 	+ Add Audio Unit support
 	0.7.19
 	+ Fixed textbox bug
@@ -305,7 +305,7 @@ function jReadAuIni(ini_file_name, tRatingsData)
 				local iRating = _getRating(tRatingsData, sName)
 				tResult[#tResult + 1] =	{	name = sName,
 											desc = fxDesc,
-											filename = name,
+											filename = vendor .. ": " .. name,
 											au = au,
 											aui = aui,
 											rating = iRating
@@ -821,9 +821,9 @@ function selectFx(i)
 		if fx.jsfx then
 			fxString = fx.filename
 		elseif fx.au then
-			fxString = "AU:" .. fx.filename
+			fxString = fx.filename
 		elseif fx.aui then
-			fxString = "AUi:" .. fx.filename
+			fxString = fx.filename
 		else
 			fxString = typeInfo .. _removeVstiString(tVstData[fx.id].name)
 		end
