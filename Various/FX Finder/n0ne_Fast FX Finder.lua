@@ -7,8 +7,10 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.21
+@version 0.7.22
 @changelog
+	0.7.22
+	+ Fix bug with paths in Reaper 6.04
 	0.7.21
 	+ Add Audio Unit support
 	0.7.19
@@ -742,7 +744,7 @@ function selectFx(i)
 	
 	if fx.tracktemplate then
 		-- This is a template, insert it
-		reaper.Main_openProject(fx.path .. fx.filename)
+		reaper.Main_openProject(_jPath(fx.path .. fx.filename))
 	elseif fx.fxchain then
 		if not GUI.kb.control() then -- Control not held, insert on tracks
 			-- Adds an FXCHAIN to a track. If there are no FX on the track an empty chain will be created first
@@ -762,7 +764,7 @@ function selectFx(i)
 				if bCreatedChain then
 					t.selected = 1
 				end
-				jFxChainAdd(t, jReadFxChainFromFile(fx.path .. fx.filename))
+				jFxChainAdd(t, jReadFxChainFromFile(_jPath(fx.path .. fx.filename)))
 			end
 
 			if TRACK_SHOW_FLAG == 1 then -- added for people using the fxchain window so the fx will show
@@ -853,6 +855,16 @@ end
 
 function _removeVstiString(s)
 	return s:gsub("!!!VSTi", "")
+end
+
+function _jPath(p)
+	if reaper.GetOS() == "Win32" or reaper.GetOS() == "Win64" then
+		local r = p:gsub("/", "\\"):gsub("\\+","\\")
+		return r
+	else
+		local r = p:gsub("\\", "/"):gsub("/+","/")
+		return r
+	end
 end
 
 -- function _makeFxLabel(s)
@@ -1080,10 +1092,10 @@ function loadSettings()
 	
 	-- if true then return false end
 
-	VST_INI_FILE = 	reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'vst_ini_file', "string")
-	AU_INI_FILE = 	reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'au_ini_file', "string")
-	JSFX_INI_FILE = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'jsfx_ini_file', "string")
-	DATA_INI_FILE = SETTINGS_BASE_FOLDER .. "/" .. jSettingsGet(SETTINGS, 'fx_finder_data_file', "string")
+	VST_INI_FILE = 	_jPath(reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'vst_ini_file', "string"))
+	AU_INI_FILE = 	_jPath(reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'au_ini_file', "string"))
+	JSFX_INI_FILE = _jPath(reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'jsfx_ini_file', "string"))
+	DATA_INI_FILE = _jPath(SETTINGS_BASE_FOLDER .. jSettingsGet(SETTINGS, 'fx_finder_data_file', "string"))
 	-- ULTRASCHALL_API_FILE = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'ultraschall_api_file', "string")
 
 	PREFER_VST3 = 		jSettingsGet(SETTINGS, 'prefer_vst3', "boolean")
@@ -1098,8 +1110,8 @@ function loadSettings()
 	end
 
 
-	TEMPLATE_ROOT_DIR = reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'template_root_dir', "string")
-	FXCHAIN_ROOT_DIR = 	reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'fxchain_root_dir', "string")
+	TEMPLATE_ROOT_DIR = _jPath(reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'template_root_dir', "string"))
+	FXCHAIN_ROOT_DIR = 	_jPath(reaper.GetResourcePath() .. "/" .. jSettingsGet(SETTINGS, 'fxchain_root_dir', "string"))
 	
 	PLUGIN_BLACKLIST_ENABLE = 	jSettingsGet(SETTINGS, 'plugin_blacklist_enable', "boolean")
 	TEMPLATE_SUBDIRS_ENABLE = 	jSettingsGet(SETTINGS, 'template_subdirs_enable', "boolean")
