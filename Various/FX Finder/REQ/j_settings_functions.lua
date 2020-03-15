@@ -183,6 +183,7 @@ function _jSettingsReadProcessValue(value)
 end
 
 function jSettingsGet(t, name, typeCheck)
+	
 	local value = t[name]
 	if value == nil then
 		msg("jSettingsGet(): Trying to read an empty setting: " .. name)
@@ -196,9 +197,13 @@ function jSettingsGet(t, name, typeCheck)
 		end
 		return value
 	else
-		if type(value[1]) ~= typeCheck then
-			msg("jSettingsGet(): setting type does not match for: " .. name .. ". Wanted: " .. typeCheck .. ", got: " .. type(value[1]))
+		local v = value[1]
+		-- msg(tostring(v) .. " : " .. tostring(tonumber(v)))
+		if typeCheck == "number" and tonumber(v) then
+			return v
+		elseif type(v) ~= typeCheck then
+			msg("jSettingsGet(): setting type does not match for: " .. name .. ". Wanted: " .. typeCheck .. ", got: " .. type(v))
 		end
-		return value[1]
+		return v
 	end
 end

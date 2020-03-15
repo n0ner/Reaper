@@ -7,8 +7,12 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.22
+@version 0.7.23
 @changelog
+	0.7.23
+	+ Fix negative screen coordinates error message
+	+ Updated error message when JSFX ini file does not exist. Updating Reaper deletes this file and you need to run the default FX browser once.
+	+ Added colors for different type's of FX
 	0.7.22
 	+ Fix bug with paths in Reaper 6.04
 	0.7.21
@@ -62,6 +66,15 @@ require ('REQ.j_settings_functions')
 SETTINGS_BASE_FOLDER = script_path
 SETTINGS_INI_FILE = script_path .. "fx-finder-settings.ini"
 SETTINGS_DEFAULT_FILE = script_path .. "REQ/fx-finder-settings-default.ini"
+
+COLOR_VST = jColor:new({.6, .6, .6, 1})
+COLOR_VSTI = jColor:new({0.8, 0.8, 0.5, 1})
+COLOR_FXCHAIN = jColor:new({0.5, 0.5, 0.8, 1})
+COLOR_TEMPLATE = jColor:new({0.5, 0.7, 0.5, 1})
+COLOR_JSFX = jColor:new({0.7, 0.5, 0.5, 1})
+COLOR_AU = jColor:new({0.5, 0.5, 0.7, 1})
+COLOR_AUI = jColor:new({0.5, 0.7, 0.7, 1})
+COLOR_ACTION = jColor:new({0.8, 0.5, 0.5, 1})
 
 function msg(m)
 	return reaper.ShowConsoleMsg(tostring(m) .. "\n")
@@ -166,6 +179,7 @@ function jReadJsfxIni(ini_file_name, tRatingsData)
 	
 	if not reaper.file_exists(ini_file_name) then
 		msg("Ini file does not exist: " .. ini_file_name)
+		msg("Try opening the Reaper default FX browser once to have this file automatically generated.")
 		return tResult
 	end
 
@@ -597,37 +611,20 @@ function createResultButtons(gui, tControls, n, height, y_start)
 				end
 				return true -- else
 			end
-			
-			-- tControls[i] = {gui:controlAdd(c), gui:controlAdd(info)}
+
 			gui:controlAdd(c)
 			gui:controlAdd(info)
 			tControls[i] = {c, info}
 		elseif i > n then
-			-- msg("-: " .. i .. "/" .. (#gui.controls - 2)/2 .. "/" .. #tControls .. " n: " .. n)
-			-- if tControls[i][1] == nil or tControls[i][2] == nil then
-			-- 	msg("last one was nil in table!")
-			-- end
-			-- if tControls[i] == nil then
-			-- 	for k,v in ipairs(tControls) do
-			-- 		msg(k .. " => " .. tostring(v))
-			-- 	end
-			-- end
-			-- msg("1: " .. tostring(tControls))
-			-- msg("2: " .. tostring(tControls[i]))
-			-- msg("3: " .. tostring(tControls[i][1]))
+
 			local b = tControls[i][1]
 			local info = tControls[i][2]
-			-- if b == nil or info == nil then
-			-- 	msg("last one was nil in controls!")
-			-- end
 			gui:controlDelete(b)
 			gui:controlDelete(info)
-			-- gui:controlDeleteId(tControls[i][1])
 			n_to_remove = n_to_remove + 1
 		end
 
 		if i <= #tControls and i <= n then
-			-- msg("u: " .. i .. "/" .. (#gui.controls - 2)/2 .. "/" .. #tControls)
 			local b = tControls[i][1]
 			local info = tControls[i][2]
 
@@ -637,16 +634,21 @@ function createResultButtons(gui, tControls, n, height, y_start)
 	end
 
 	for i = 1, n_to_remove do
-		-- msg("removing: " .. i .. "/" .. n_to_remove)
 		table.remove(tControls, #tControls)
 	end
-
-	-- msg("End # controls in table: " .. #tControls)
 
 end
 
 function _round(inValue)
 	return math.floor(inValue+0.5)
+end
+
+function _makeColorsCatagory(b, info, color)
+	b.colors_label = {}
+	b.colors_label.normal = color
+	b.colors_label.hover = color:lighter(0.2)
+	-- b.colors_label.hover = jColor:new("white")
+	info.colors_label = color
 end
 
 function showSearchResults(tButtons, tResults)	
@@ -674,6 +676,7 @@ function showSearchResults(tButtons, tResults)
 				elseif fx.dll or fx.vst then
 					tTypes[#tTypes+1] = "VSTi"
 				end
+				_makeColorsCatagory(b, info, COLOR_VSTI)
 			else
 				if fx.vst3 then
 					tTypes[#tTypes+1] = "VST3"
@@ -684,30 +687,37 @@ function showSearchResults(tButtons, tResults)
 				if fx.vst then
 					tTypes[#tTypes+1] = "VST"
 				end
+				_makeColorsCatagory(b, info, COLOR_VST)
 			end
 
 			if fx.tracktemplate then
 				tTypes[#tTypes+1] = "TEMP"
+				_makeColorsCatagory(b, info, COLOR_TEMPLATE)
 			end
 
 			if fx.fxchain then
 				tTypes[#tTypes+1] = "FXCHAIN"
+				_makeColorsCatagory(b, info, COLOR_FXCHAIN)
 			end
 
 			if fx.jsfx then
 				tTypes[#tTypes+1] = "JSFX"
+				_makeColorsCatagory(b, info, COLOR_JSFX)
 			end
 
 			if fx.action then
 				tTypes[#tTypes+1] = "ACTION"
+				_makeColorsCatagory(b, info, COLOR_ACTION)
 			end
 
 			if fx.au then
 				tTypes[#tTypes+1] = "AU"
+				_makeColorsCatagory(b, info, COLOR_AU)
 			end
 
 			if fx.aui then
 				tTypes[#tTypes+1] = "AUi"
+				_makeColorsCatagory(b, info, COLOR_AUI)
 			end
 
 			local sTypes = ""
@@ -764,10 +774,16 @@ function selectFx(i)
 				if bCreatedChain then
 					t.selected = 1
 				end
+				local numFxBefore = t.fxcount
 				jFxChainAdd(t, jReadFxChainFromFile(_jPath(fx.path .. fx.filename)))
+				if FXCHAIN_FLOAT_WINDOWS then
+					for iFX = numFxBefore, t.fxcount - 1 do
+						t:getFx(iFX):show(3)
+					end
+				end
 			end
 
-			if TRACK_SHOW_FLAG == 1 then -- added for people using the fxchain window so the fx will show
+			if TRACK_SHOW_FLAG == 1 and not FXCHAIN_FLOAT_WINDOWS then -- added for people using the fxchain window so the fx will show
 				local focusTrack = selectedTracks[1]
 				if focusTrack then
 					focusTrack:getFx(focusTrack.fxcount - 1):show(TRACK_SHOW_FLAG)
@@ -866,22 +882,6 @@ function _jPath(p)
 		return r
 	end
 end
-
--- function _makeFxLabel(s)
--- 	s = _removeVstiString(s) -- remove !!!VSTi indicator
--- 	s = s:gsub(".RTrackTemplate", "") -- remove tracktemplate extention
--- 	s = s:gsub(".RfxChain", "") -- remove tracktemplate extention
--- --	s = s:gsub("\\%)", ")") -- remove ugly trailing slash from template folders
--- 	return s
--- end
-
--- function _makeFxNameSearchable(s)
--- 	s = _removeVstiString(s) -- remove !!!VSTi indicator
--- 	s = s:gsub(".RTrackTemplate", "") -- remove tracktemplate extention
--- 	s = s:gsub(".RfxChain", "") -- remove tracktemplate extention
--- --	s = s:gsub("\\%)", ")") -- remove ugly trailing slash from template folders
--- 	return s
--- end
 
 function init()
 	-- reaper.ClearConsole()
@@ -1084,6 +1084,10 @@ function loadSettings()
 		SETTINGS['au_ini_file'] = {"reaper-auplugins64.ini"}
 	end
 
+	if not SETTINGS['fxchain_float_windows'] then
+		jSettingsWriteToFile(SETTINGS_INI_FILE, "fx", "fxchain_float_windows", "false", true)
+		SETTINGS['fxchain_float_windows'] = {false}
+	end
 	-- if not SETTINGS['ultraschall_api_file'] then
 	-- 	jSettingsWriteToFile(SETTINGS_INI_FILE, "files", "ultraschall_api_file", "UserPlugins/ultraschall_api.lua")
 	-- 	SETTINGS['ultraschall_api_file'] = {"UserPlugins/ultraschall_api.lua"}
@@ -1102,6 +1106,7 @@ function loadSettings()
 	ITEM_SHOW_FLAG = jSettingsGet(SETTINGS, 'item_show_flag', "number")
 	TRACK_SHOW_FLAG = jSettingsGet(SETTINGS, 'track_show_flag', "number")
 	LOAD_ACTIONS = jSettingsGet(SETTINGS, 'load_actions', "boolean")
+	FXCHAIN_FLOAT_WINDOWS = jSettingsGet(SETTINGS, 'fxchain_float_windows', "boolean")
 	
 	if reaper.GetOS() == "OSX64" or reaper.GetOS() == "OSX32" then
 		LOAD_AU = jSettingsGet(SETTINGS, 'load_au', "boolean")

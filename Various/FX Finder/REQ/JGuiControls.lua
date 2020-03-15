@@ -210,11 +210,11 @@ function jGuiControl:onMouseClick()
 end
 
 function jGuiControl:_setStateColor()
-	if self.active == true then
+	if self.active == true and self.colors_label.active then
 		self:__setGfxColor(self.colors_label.active)
-	elseif self.hover == true then
+	elseif self.hover == true and self.colors_label.hover then
 		self:__setGfxColor(self.colors_label.hover)
-	elseif self.focus == true then
+	elseif self.focus == true and self.colors_label.focus then
 		self:__setGfxColor(self.colors_label.focus)
 	else
 		self:__setGfxColor(self.colors_label.normal)
