@@ -545,6 +545,10 @@ function jGui:getControlsByZInv()
 end
 
 function jGui:setReaperFocus()
+	if reaper.JS_Window_Find == nil then -- JS Extention not installed
+		return false
+	end
+
 	local window = reaper.JS_Window_Find(self.title, true)
 	if window then
 		reaper.JS_Window_SetFocus(window)
