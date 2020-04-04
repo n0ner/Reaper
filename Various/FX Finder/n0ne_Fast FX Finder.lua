@@ -7,8 +7,10 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.24
+@version 0.7.25
 @changelog
+	0.7.25
+	+ Fix window focus when opening in dock
 	0.7.24
 	+ Fix negative screen coordinates error message
 	+ Updated error message when JSFX ini file does not exist. Updating Reaper deletes this file and you need to run the default FX browser once.
@@ -1167,6 +1169,7 @@ function loadSettings()
 end
 
 if init() then
+	GUI:setReaperFocus()
 	loop()
 end
 

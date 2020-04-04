@@ -544,4 +544,12 @@ function jGui:getControlsByZInv()
 	return res
 end
 
-	
+function jGui:setReaperFocus()
+	local window = reaper.JS_Window_Find(self.title, true)
+	if window then
+		reaper.JS_Window_SetFocus(window)
+		return true
+	else
+		return false
+	end
+end
