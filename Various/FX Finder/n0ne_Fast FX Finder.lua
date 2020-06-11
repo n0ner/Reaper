@@ -7,8 +7,10 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.25
+@version 0.7.26
 @changelog
+	0.7.26
+	+ added more comments to default settings file to make it easier to costumize things
 	0.7.25
 	+ Fix window focus when opening in dock
 	0.7.24
