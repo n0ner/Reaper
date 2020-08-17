@@ -440,6 +440,12 @@ function jGuiTextInput:_onKeyboard(key)
 		local last_space = self.value:find("%s[^%s]*$") or 0
 		self.value = self.value:sub(1, last_space)
 		self:__setCarretPos(last_space)
+	elseif key == self.kb.control_v and self.kb.control() then
+		local clip = reaper.CF_GetClipboard()
+		self.value = self.value:sub(0, self.carret_pos) .. clip .. self.value:sub(self.carret_pos + 1, -1)
+		self:__setCarretPos(self.carret_pos + #clip)	
+	elseif key == self.kb.control_c and self.kb.control() then
+		reaper.CF_SetClipboard(self.value)
 	elseif key == self.kb.arrow_left then
 		self:__setCarretPos(self.carret_pos - 1)
 	elseif key == self.kb.arrow_right then
@@ -452,7 +458,6 @@ function jGuiTextInput:_onKeyboard(key)
 		self.value = self.value:sub(0, self.carret_pos) .. string.char(key) .. self.value:sub(self.carret_pos + 1, -1)
 		self:__setCarretPos(self.carret_pos + 1)
 	end
-	
 	self.label = self.value
 	
 	self:onKeyboard(key) -- pass on the keypress to the used defined function
