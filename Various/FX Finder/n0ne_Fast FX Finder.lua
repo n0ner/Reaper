@@ -7,8 +7,12 @@
 	A little window that allows for quick searching of FX (can be VST, templates or fxrack).
 
 	The script stores how often you select a certain FX and orders the list by how many times something is used.
-@version 0.7.27
+@version 0.7.28
 @changelog
+	0.7.28
+	+ Checking if the right ini file is set for MacOC 64 or arm64
+	+ Added shameless self promotion in titlebar of the window ;)
+	+ The window will now stay open when trying to insert while no track/item is selected and display a tooltip to indicate this
 	0.7.27
 	+ Added support for copy/pasting. CTRL + C will copy the whole textfield.  CTRL + V will paste at the carret.
 	0.7.26
@@ -85,6 +89,11 @@ COLOR_ACTION = jColor:new({0.8, 0.5, 0.5, 1})
 
 function msg(m)
 	return reaper.ShowConsoleMsg(tostring(m) .. "\n")
+end
+
+function jTooltip(str)
+    local x, y = reaper.GetMousePosition()
+    reaper.TrackCtl_SetToolTip(str, x + 10, y + 10, true)
 end
 
 function jGetActions()
@@ -231,6 +240,41 @@ function _nameOnBlacklist(tBlacklist, name)
 	return false
 end
 
+function _checkMacVersionIni(ini_file_name)
+	if not SHOW_WARNINGS then return true end
+	
+	local sVersion = reaper.GetAppVersion() 
+	-- check if sVersion contains "macOS"
+	if sVersion:find("macOS%-arm64") then
+		if ini_file_name:find("reaper%-vstplugins_arm64.ini") then
+			-- msg("arm 64 and correct ini file")
+			return true
+		else
+			msg("You are running the arm64 version of Reaper, but a different ini file is selected.")
+			msg("Currently selected ini file: " .. ini_file_name)
+			msg("Please make sure you have the right value set for \"vst_ini_file\" in")
+			msg("/n0ne scripts/Various/FX Finder/fx-finder-settings.ini")
+			msg("You can also turn these warnings off by setting show_warnings to false in the same file.")
+			return false
+		end
+	elseif sVersion:find("OSX64") then
+		if ini_file_name:find("reaper%-vstplugins64.ini") then
+			-- msg("macos and correct ini file")
+			return true
+		else
+			msg("You are running the intel version of Reaper, but a different ini file is selected.")
+			msg("Currently selected ini file: " .. ini_file_name)
+			msg("Please make sure you have the right value set for \"vst_ini_file\" in")
+			msg("/n0ne scripts/Various/FX Finder/fx-finder-settings.ini")
+			msg("You can also turn these warnings off by setting show_warnings to false in the same file.")
+			return false
+		end
+	else
+		return true
+	end
+	
+end
+
 function jReadVstIni(ini_file_name, tRatingsData)
 	local i = 0
 	local tResult = {} -- the resulting table with VST's in it
@@ -240,6 +284,8 @@ function jReadVstIni(ini_file_name, tRatingsData)
 		msg("Ini file does not exist: " .. ini_file_name)
 		return tResult
 	end
+
+	_checkMacVersionIni(VST_INI_FILE)
 
 	for line in io.lines(ini_file_name) do
 		-- Safety checking the first line
@@ -582,11 +628,11 @@ function createResultButtons(gui, tControls, n, height, y_start)
 			info.y = c.y
 			
 			function c:onMouseClick()
-				selectFx(i + SCROLL_RESULTS)
+				returnValue = selectFx(i + SCROLL_RESULTS)
 
 				gui:setFocus(textBox)
 				UPDATE_RESULTS = true
-				if not gui.kb.shift() then
+				if not gui.kb.shift() and returnValue then
 					self.parentGui:exit()
 				end
 			end
@@ -758,7 +804,8 @@ function selectFx(i)
 	tVstData[fx.id].rating = tVstData[fx.id].rating + 1
 
 	reaper.Undo_BeginBlock2(p:getId())
-	
+
+	local returnValue = true
 	if fx.tracktemplate then
 		-- This is a template, insert it
 		reaper.Main_openProject(_jPath(fx.path .. fx.filename))
@@ -766,6 +813,12 @@ function selectFx(i)
 		if not GUI.kb.control() then -- Control not held, insert on tracks
 			-- Adds an FXCHAIN to a track. If there are no FX on the track an empty chain will be created first
 			local selectedTracks = p:selectedTracks(0, 0, true)
+
+			if #selectedTracks < 1 then
+				returnValue = false
+				jTooltip("No track(s) selected")
+			end
+
 			local bCreatedChain = false
 			
 			for _, t in pairs(selectedTracks) do
@@ -833,8 +886,6 @@ function selectFx(i)
 		end
 	elseif fx.action then
 		reaper.Main_OnCommandEx(fx.command, 1, 0)
-		-- msg(fx.command)
-		-- msg(fx.name)
 	else
 		-- this is a vst or a jsfx
 		local typeInfo = ""
@@ -853,6 +904,13 @@ function selectFx(i)
 			fxString = typeInfo .. _removeVstiString(tVstData[fx.id].name)
 		end
 		if not GUI.kb.control() then -- Control not held, insert on tracks
+			if p.selectedtrackcount < 1 then
+				returnValue = false
+				jTooltip("No track(s) selected")
+			else
+				returnValue = true
+			end
+
 			for t in p:selectedTracks() do
 				local r = t:addFx(fxString)
 				if r then
@@ -860,6 +918,13 @@ function selectFx(i)
 				end
 			end
 		else -- Control held, insert on items
+			if p.selecteditemcount < 1 then
+				returnValue = false
+				jTooltip("No item(s) selected")
+			else
+				returnValue = true
+			end
+
 			for i in p:selectedItems() do
 				local take = i:getActiveTake()
 				local r = take:addFx(fxString)
@@ -872,7 +937,7 @@ function selectFx(i)
 	reaper.Undo_EndBlock2(p:getId(), "FAST FX FINDER: Add Fx", 0)
 
 	UPDATE_RATINGS = true
-	return true
+	return returnValue
 
 end
 
@@ -932,7 +997,7 @@ function init()
 	table.sort(tVstData, sortByRating)
 
 	-- Create the GUI
-	GUI = jGui:new({title = "Fast FX Finder", width = WINDOW_WIDTH, height = WINDOW_HEIGHT, x=WINDOW_X, y=WINDOW_Y, dockstate=WINDOW_DOCK_STATE})
+	GUI = jGui:new({title = "Fast FX Finder [by The Him]", width = WINDOW_WIDTH, height = WINDOW_HEIGHT, x=WINDOW_X, y=WINDOW_Y, dockstate=WINDOW_DOCK_STATE})
 
 	tResultButtons = {}
 
@@ -1045,6 +1110,12 @@ function loadSettings()
 	jSettingsCreate(SETTINGS_INI_FILE, SETTINGS_DEFAULT_FILE)
 	SETTINGS = assert(jSettingsReadFromFile(SETTINGS_INI_FILE), "Could not open settings file.")
 
+	-- new settings since 0.7.27, will be created if not present
+	if not SETTINGS['show_warnings'] then
+		jSettingsWriteToFile(SETTINGS_INI_FILE, "files", "show_warnings", "true", true)
+		SETTINGS['show_warnings'] = {true}
+	end
+
 	-- new settings since 0.7.16, will be created if not present
 	if not SETTINGS['window_save_state'] then
 		jSettingsWriteToFile(SETTINGS_INI_FILE, "gui", "window_save_state", "true", true)
@@ -1140,6 +1211,7 @@ function loadSettings()
 	WINDOW_DOCK_STATE = jSettingsGet(SETTINGS, 'window_dock_state', "number")
 	GUI_SIZE = jSettingsGet(SETTINGS, 'gui_size', "number")
 	
+	SHOW_WARNINGS = jSettingsGet(SETTINGS, 'show_warnings', "boolean")
 
 	if PLUGIN_BLACKLIST_ENABLE then
 		PLUGIN_BLACKLIST = jSettingsGet(SETTINGS, 'plugin_blacklist_regex', "table")
